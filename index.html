@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PG Voice Assistant</title>
+    <style>
+        body {
+            background-color: #0d1117;
+            color: #ffffff;
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+            text-align: center;
+        }
+        .status-card {
+            background: #161b22;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
+            max-width: 90%;
+            width: 350px;
+        }
+        .mic-btn {
+            background-color: #238636;
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            font-size: 18px;
+            border-radius: 50px;
+            cursor: pointer;
+            margin-top: 20px;
+            transition: 0.3s;
+        }
+        .mic-btn:hover {
+            background-color: #2ea043;
+        }
+        .listening {
+            background-color: #da3633 !important;
+            animation: pulse 1.5s infinite;
+        }
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+        #output {
+            margin-top: 15px;
+            font-size: 16px;
+            color: #8b949e;
+        }
+    </style>
+</head>
+<body>
+
+<div class="status-card">
+    <h2>PG AI Assistant</h2>
+    <p id="status">স্টার্ট বাটনে চাপ দিয়ে শুরু কর</p>
+    <button class="mic-btn" id="startBtn" onclick="initAssistant()">Start PG</button>
+    <p id="output"></p>
+</div>
+
+<script>
+    // তোর Render ব্যাকএন্ড URL
+    const BACKEND_URL = "https://pg-backend-gpzj.onrender.com/chat";
+
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    let recognition;
+    let isListening = false;
+
+    if (SpeechRecognition) {
+        recognition = new SpeechRecognition();
+        recognition.continuous = false;
+        recognition.lang = 'bn-BD'; // বাংলা ইনপুট (প্রয়োজনে 'en-US' করতে পারিস)
+        recognition.interimResults = false;
+
+        recognition.onstart = () => {
+            isListening = true;
+            document.getElementById('status').innerText = "PG শুনছে... বলুন!";
+            document.getElementById('startBtn').classList.add('listening');
+            document.getElementById('startBtn').innerText = "Listening...";
+        };
+
+        recognition.onresult = async (event) => {
+            const userText = event.results[0][0].transcript;
+            document.getElementById('output').innerText = "আপনি: " + userText;
+            document.getElementById('status').innerText = "PG ভাবছে...";
+            
+            // ব্যাকএন্ডে মেসেজ পাঠানো
+            await sendToBackend(userText);
+        };
+
+        recognition.onerror = (event) => {
+            console.error("Speech Recognition Error: ", event.error);
+            document.getElementById('status').innerText = "আবার চেষ্টা করো...";
+            restartListening();
+        };
+
+        recognition.onend = () => {
+            isListening = false;
+            document.getElementById('startBtn').classList.remove('listening');
+            document.getElementById('startBtn').innerText = "Start PG";
+        };
+    } else {
+        alert("আপনার ব্রাউজারে Voice Recognition সাপোর্ট করছে না। Chrome ব্রাউজার ব্যবহার করুন।");
+    }
+
+    function initAssistant() {
+        if (!isListening) {
+            recognition.start();
+        }
+    }
+
+    async function sendToBackend(text) {
+        try {
+            const response = await fetch(BACKEND_URL, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ message: text })
+            });
+
+            const data = await response.json();
+            const replyText = data.speech_response || data.response || "কোনো উত্তর পাওয়া যায়নি";
+            
+            document.getElementById('status').innerText = "PG বলছে...";
+            speakResponse(replyText);
+
