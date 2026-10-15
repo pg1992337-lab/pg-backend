@@ -14,12 +14,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Render-এর Environment Variable থেকে সেফলি Key পড়া
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-if GEMINI_API_KEY:
-    genai.configure(api_key=GEMINI_API_KEY)
 
-model = genai.GenerativeModel("gemini-1.5-flash")
+if GEMINI_API_KEY:
+    genai.configure(api_key=GEMINI_API_KEY.strip())
 
 class ChatRequest(BaseModel):
     message: str
@@ -31,10 +29,18 @@ def read_root():
 @app.post("/chat")
 def chat(req: ChatRequest):
     try:
-        prompt = f"You are PG AI Assistant. Reply concisely in 1-2 shortBengali sentences to: {req.message}"
-        response = model.generate_content(prompt)
-        bot_reply = response.text
+        # gemini-2.5-flash fallback সহ চেষ্টা করা
+        try:
+            model = genai.GenerativeModel("gemini-2.5-flash")
+            prompt = f"You are PG AI Assistant. Reply concisely in 1-2 short Bengali sentences to: {req.message}"
+            response = model.generate_content(prompt)
+            return {"speech_response": response.text}
+        except Exception:
+            model = genai.GenerativeModel("gemini-1.5-flash")
+            prompt = f"You are PG AI Assistant. Reply concisely in 1-2 short Bengali sentences to: {req.message}"
+            response = model.generate_content(prompt)
+            return {"speech_response": response.text}
+            
     except Exception as e:
-        bot_reply = "দুঃখিত, কোনো একটি সমস্যা হয়েছে।"
-
-    return {"speech_response": bot_reply}
+        print(f"Error detail: {e}")
+        return {"speech_response": "দুঃখিত, কোনো একটি সমস্যা হয়েছে।"}
