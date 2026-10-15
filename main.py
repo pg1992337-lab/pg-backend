@@ -29,11 +29,22 @@ def read_root():
 @app.post("/chat")
 def chat(req: ChatRequest):
     try:
-        model = genai.GenerativeModel("gemini-1.5-flash")
+        # API Key-তে অনুমোদিত লাইভ মডেল খুঁজে নিয়ে কল করা
+        available_models = [
+            m.name for m in genai.list_models() 
+            if 'generateContent' in m.supported_generation_methods
+        ]
+        
+        if not available_models:
+            return {"speech_response": "Error: No models available for this API key"}
+
+        # লিস্টের প্রথম কার্যকর মডেল দিয়ে উত্তর তৈরি
+        model = genai.GenerativeModel(available_models[0])
         prompt = f"You are PG AI Assistant. Reply concisely in 1-2 short Bengali sentences to: {req.message}"
         response = model.generate_content(prompt)
         
         return {"speech_response": response.text}
+
     except Exception as e:
         print(f"Error detail: {e}")
         return {"speech_response": f"Error: {str(e)}"}
