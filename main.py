@@ -1,17 +1,25 @@
+import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+import google.generativeai as genai
 
 app = FastAPI()
 
-# CORS সেটিং (GitHub Pages কে ব্যাকএন্ড কল করার অনুমতি দেওয়া)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # সকল অরিজিন এলাউ করা হচ্ছে
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Render-এর Environment Variable থেকে সেফলি Key পড়া
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+if GEMINI_API_KEY:
+    genai.configure(api_key=GEMINI_API_KEY)
+
+model = genai.GenerativeModel("gemini-1.5-flash")
 
 class ChatRequest(BaseModel):
     message: str
@@ -22,7 +30,11 @@ def read_root():
 
 @app.post("/chat")
 def chat(req: ChatRequest):
-    user_msg = req.message
-    # এখানে তোমার AI বা উত্তর দেওয়ার লজিক থাকবে
-    bot_reply = f"আমি পেয়েছি: {user_msg}" 
+    try:
+        prompt = f"You are PG AI Assistant. Reply concisely in 1-2 shortBengali sentences to: {req.message}"
+        response = model.generate_content(prompt)
+        bot_reply = response.text
+    except Exception as e:
+        bot_reply = "দুঃখিত, কোনো একটি সমস্যা হয়েছে।"
+
     return {"speech_response": bot_reply}
