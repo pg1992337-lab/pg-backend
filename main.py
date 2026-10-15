@@ -29,18 +29,24 @@ def read_root():
 @app.post("/chat")
 def chat(req: ChatRequest):
     try:
-        # models/ প্রিফিক্স সহ কাজ করার জন্য চেষ্টা
-        try:
-            model = genai.GenerativeModel("models/gemini-1.5-flash")
-        except Exception:
-            model = genai.GenerativeModel("gemini-1.5-flash")
-
+        # উপলব্ধ সব মডেল লিস্ট করে প্রফেশনাল জেনারেটিভ মডেল সিলেক্ট করা
+        available_models = [
+            m.name for m in genai.list_models() 
+            if 'generateContent' in m.supported_generation_methods
+        ]
+        
+        if not available_models:
+            return {"speech_response": "কোনো অ্যাক্টিভ মডেল পাওয়া যায়নি।"}
+            
+        # প্রথম উপযুক্ত মডেলটি ব্যবহার করা
+        selected_model_name = available_models[0]
+        model = genai.GenerativeModel(selected_model_name)
+        
         prompt = f"You are PG AI Assistant. Reply concisely in 1-2 short Bengali sentences to: {req.message}"
         response = model.generate_content(prompt)
-        bot_reply = response.text
-
+        
+        return {"speech_response": response.text}
+        
     except Exception as e:
         print(f"Error detail: {e}")
-        bot_reply = "দুঃখিত, কোনো একটি সমস্যা হয়েছে।"
-
-    return {"speech_response": bot_reply}
+        return {"speech_response": "দুঃখিত, কোনো একটি সমস্যা হয়েছে।"}
