@@ -29,18 +29,18 @@ def read_root():
 @app.post("/chat")
 def chat(req: ChatRequest):
     try:
-        # gemini-2.5-flash fallback সহ চেষ্টা করা
+        # models/ প্রিফিক্স সহ কাজ করার জন্য চেষ্টা
         try:
-            model = genai.GenerativeModel("gemini-2.5-flash")
-            prompt = f"You are PG AI Assistant. Reply concisely in 1-2 short Bengali sentences to: {req.message}"
-            response = model.generate_content(prompt)
-            return {"speech_response": response.text}
+            model = genai.GenerativeModel("models/gemini-1.5-flash")
         except Exception:
             model = genai.GenerativeModel("gemini-1.5-flash")
-            prompt = f"You are PG AI Assistant. Reply concisely in 1-2 short Bengali sentences to: {req.message}"
-            response = model.generate_content(prompt)
-            return {"speech_response": response.text}
-            
+
+        prompt = f"You are PG AI Assistant. Reply concisely in 1-2 short Bengali sentences to: {req.message}"
+        response = model.generate_content(prompt)
+        bot_reply = response.text
+
     except Exception as e:
         print(f"Error detail: {e}")
-        return {"speech_response": "দুঃখিত, কোনো একটি সমস্যা হয়েছে।"}
+        bot_reply = "দুঃখিত, কোনো একটি সমস্যা হয়েছে।"
+
+    return {"speech_response": bot_reply}
