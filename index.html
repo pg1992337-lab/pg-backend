@@ -36,82 +36,64 @@
             margin-top: 20px;
             transition: 0.3s;
         }
-        .mic-btn:hover {
-            background-color: #2ea043;
-        }
-        .listening {
-            background-color: #da3633 !important;
-            animation: pulse 1.5s infinite;
-        }
-        @keyframes pulse {
-            0% { transform: scale(1); }
-            50% { transform: scale(1.05); }
-            100% { transform: scale(1); }
-        }
-        #output {
-            margin-top: 15px;
-            font-size: 16px;
-            color: #8b949e;
-        }
+        .mic-btn:hover { background-color: #2ea043; }
+        #status { margin-top: 15px; font-size: 16px; color: #58a6ff; }
+        #output { margin-top: 10px; font-size: 14px; color: #8b949e; }
+        #errorLog { margin-top: 15px; font-size: 13px; color: #f85149; word-break: break-all; }
     </style>
 </head>
 <body>
 
 <div class="status-card">
     <h2>PG AI Assistant</h2>
+    <button class="mic-btn" id="startBtn" onclick="startAssistant()">Start PG</button>
     <p id="status">স্টার্ট বাটনে চাপ দিয়ে শুরু কর</p>
-    <button class="mic-btn" id="startBtn" onclick="initAssistant()">Start PG</button>
     <p id="output"></p>
+    <p id="errorLog"></p>
 </div>
 
 <script>
-    // তোর Render ব্যাকএন্ড URL
     const BACKEND_URL = "https://pg-backend-gpzj.onrender.com/chat";
-
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     let recognition;
-    let isListening = false;
 
-    if (SpeechRecognition) {
-        recognition = new SpeechRecognition();
-        recognition.continuous = false;
-        recognition.lang = 'bn-BD'; // বাংলা ইনপুট (প্রয়োজনে 'en-US' করতে পারিস)
-        recognition.interimResults = false;
+    function startAssistant() {
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 
-        recognition.onstart = () => {
-            isListening = true;
-            document.getElementById('status').innerText = "PG শুনছে... বলুন!";
-            document.getElementById('startBtn').classList.add('listening');
-            document.getElementById('startBtn').innerText = "Listening...";
-        };
+        if (!SpeechRecognition) {
+            document.getElementById('errorLog').innerText = "ত্রুটি: আপনার ব্রাউজারে Voice Recognition সাপোর্ট করছে না। Chrome ব্রাউজার ব্যবহার করুন।";
+            return;
+        }
 
-        recognition.onresult = async (event) => {
-            const userText = event.results[0][0].transcript;
-            document.getElementById('output').innerText = "আপনি: " + userText;
-            document.getElementById('status').innerText = "PG ভাবছে...";
-            
-            // ব্যাকএন্ডে মেসেজ পাঠানো
-            await sendToBackend(userText);
-        };
+        try {
+            recognition = new SpeechRecognition();
+            recognition.continuous = false;
+            recognition.lang = 'bn-IN';
+            recognition.interimResults = false;
 
-        recognition.onerror = (event) => {
-            console.error("Speech Recognition Error: ", event.error);
-            document.getElementById('status').innerText = "আবার চেষ্টা করো...";
-            restartListening();
-        };
+            recognition.onstart = () => {
+                document.getElementById('status').innerText = "PG শুনছে... বলুন!";
+                document.getElementById('errorLog').innerText = "";
+            };
 
-        recognition.onend = () => {
-            isListening = false;
-            document.getElementById('startBtn').classList.remove('listening');
-            document.getElementById('startBtn').innerText = "Start PG";
-        };
-    } else {
-        alert("আপনার ব্রাউজারে Voice Recognition সাপোর্ট করছে না। Chrome ব্রাউজার ব্যবহার করুন।");
-    }
+            recognition.onresult = async (event) => {
+                const userText = event.results[0][0].transcript;
+                document.getElementById('output').innerText = "আপনি: " + userText;
+                document.getElementById('status').innerText = "PG ভাবছে...";
+                await sendToBackend(userText);
+            };
 
-    function initAssistant() {
-        if (!isListening) {
+            recognition.onerror = (event) => {
+                document.getElementById('errorLog').innerText = "Mic Error: " + event.error;
+            };
+
+            recognition.onend = () => {
+                document.getElementById('status').innerText = "বন্ধ হয়েছে। আবার চেষ্টা করতে বাটনে চাপুন।";
+            };
+
             recognition.start();
+
+        } catch (err) {
+            document.getElementById('errorLog').innerText = "Error: " + err.message;
         }
     }
 
@@ -123,9 +105,29 @@
                 body: JSON.stringify({ message: text })
             });
 
+            if (!response.ok) {
+                throw new Error("HTTP Error Status: " + response.status);
+            }
+
             const data = await response.json();
             const replyText = data.speech_response || data.response || "কোনো উত্তর পাওয়া যায়নি";
-            
             document.getElementById('status').innerText = "PG বলছে...";
             speakResponse(replyText);
 
+        } catch (error) {
+            document.getElementById('errorLog').innerText = "Backend Error: " + error.message;
+        }
+    }
+
+    function speakResponse(text) {
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.lang = 'bn-IN';
+        utterance.onend = () => {
+            if (recognition) recognition.start();
+        };
+        window.speechSynthesis.speak(utterance);
+    }
+</script>
+
+</body>
+</html>
