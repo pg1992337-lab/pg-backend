@@ -26,27 +26,37 @@ def read_root():
 @app.post("/chat")
 def chat(req: ChatRequest):
     if not GEMINI_API_KEY:
-        return {"speech_response": "Error: GEMINI_API_KEY missing in Render environment variable."}
+        return {"speech_response": "Error: GEMINI_API_KEY missing in Render environment variables."}
 
     prompt_text = f"You are PG AI Assistant. Reply concisely in 1-2 short Bengali sentences to: {req.message}"
 
-    # Google-এর নতুন API Endpoint (gemini-2.5-flash)
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={GEMINI_API_KEY}"
+    # Google-এর নতুন কার্যক্ষম মডেল নামসমূহ
+    candidate_models = [
+        "gemini-2.5-flash",
+        "gemini-2.0-flash",
+        "gemini-1.5-flash-latest"
+    ]
+
     headers = {"Content-Type": "application/json"}
     payload = {
         "contents": [{"parts": [{"text": prompt_text}]}]
     }
 
-    try:
-        res = requests.post(url, json=payload, headers=headers)
-        res_data = res.json()
+    last_error = ""
 
-        if res.status_code == 200:
-            text = res_data['candidates'][0]['content']['parts'][0]['text']
-            return {"speech_response": text}
-        else:
-            error_msg = res_data.get('error', {}).get('message', 'Unknown Error')
-            return {"speech_response": f"API Error ({res.status_code}): {error_msg}"}
+    # প্রতিটি মডেল পর পর চেষ্টা করা হবে
+    for model_name in candidate_models:
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={GEMINI_API_KEY}"
+        try:
+            res = requests.post(url, json=payload, headers=headers, timeout=10)
+            res_data = res.json()
 
-    except Exception as err:
-        return {"speech_response": f"Server Error: {str(err)}"}
+            if res.status_code == 200:
+                text = res_data['candidates'][0]['content']['parts'][0]['text']
+                return {"speech_response": text}
+            else:
+                last_error = res_data.get('error', {}).get('message', f"Status {res.status_code}")
+        except Exception as err:
+            last_error = str(err)
+
+    return {"speech_response": f"API Error: {last_error}"}
