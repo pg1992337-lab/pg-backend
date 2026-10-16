@@ -68,7 +68,7 @@
 <div class="container">
     <h2>PG AI Assistant</h2>
     
-    <input type="text" id="textInput" placeholder="এখানে মেসেজ লিখুন..." />
+    <input type="text" id="textInput" placeholder="এখানে লিখে পাঠান..." />
     <br>
     <button onclick="sendTextMessage()">পাঠান</button>
     <button id="startBtn" onclick="toggleSpeech()">🎤 কথা বলুন</button>
@@ -101,7 +101,7 @@
         };
 
         recognition.onerror = function(event) {
-            document.getElementById("status").innerText = "মাইক্রোফোনে সমস্যা হয়েছে। টাইপ করে চেষ্টা করুন।";
+            document.getElementById("status").innerText = "মাইক্রোফোনে সমস্যা হয়েছে। টাইপ করে চেষ্টা করুন।";
             resetBtn();
         };
 
@@ -112,7 +112,7 @@
 
     function toggleSpeech() {
         if (!recognition) {
-            alert("আপনার ব্রাউজারে ভয়েস সাপোর্ট নেই। Chrome বা Edge চেষ্টা করুন।");
+            alert("আপনার ব্রাউজারে ভয়েস সাপোর্ট নেই। Chrome বা Edge ব্যবহার করুন।");
             return;
         }
         if (!isListening) {
