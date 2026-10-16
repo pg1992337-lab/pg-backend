@@ -6,6 +6,7 @@ from pydantic import BaseModel
 
 app = FastAPI()
 
+# CORS Middleware - যেকোনো ডোমেইন থেকে রিকোয়েস্ট অ্যালাউ করবে
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -26,11 +27,11 @@ def read_root():
 @app.post("/chat")
 def chat(req: ChatRequest):
     if not GEMINI_API_KEY:
-        return {"speech_response": "Error: GEMINI_API_KEY missing in Render environment variables."}
+        return {"speech_response": "Error: GEMINI_API_KEY পাওয়া যায়নি। Render-এর Environment Variable চেক করুন।"}
 
     prompt_text = f"You are PG AI Assistant. Reply concisely in 1-2 short Bengali sentences to: {req.message}"
 
-    # Google-এর নতুন কার্যক্ষম মডেল নামসমূহ
+    # Google Gemini 2.5 REST Endpoint
     candidate_models = [
         "gemini-2.5-flash",
         "gemini-2.0-flash",
@@ -44,11 +45,10 @@ def chat(req: ChatRequest):
 
     last_error = ""
 
-    # প্রতিটি মডেল পর পর চেষ্টা করা হবে
     for model_name in candidate_models:
         url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={GEMINI_API_KEY}"
         try:
-            res = requests.post(url, json=payload, headers=headers, timeout=10)
+            res = requests.post(url, json=payload, headers=headers, timeout=12)
             res_data = res.json()
 
             if res.status_code == 200:
