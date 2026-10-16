@@ -12,7 +12,7 @@
             display: flex;
             justify-content: center;
             align-items: center;
-            height: 100vh;
+            min-height: 100vh;
             margin: 0;
         }
         .container {
@@ -21,29 +21,40 @@
             border-radius: 12px;
             text-align: center;
             box-shadow: 0 4px 15px rgba(0,0,0,0.5);
-            max-width: 350px;
+            max-width: 380px;
             width: 90%;
         }
         button {
             background-color: #22c55e;
             color: white;
             border: none;
-            padding: 12px 24px;
-            font-size: 18px;
+            padding: 10px 20px;
+            font-size: 16px;
             font-weight: bold;
-            border-radius: 25px;
+            border-radius: 20px;
             cursor: pointer;
-            margin: 15px 0;
+            margin: 10px 5px;
             transition: 0.3s;
         }
         button:hover {
             background-color: #16a34a;
         }
+        input[type="text"] {
+            width: 80%;
+            padding: 10px;
+            border-radius: 8px;
+            border: 1px solid #475569;
+            background-color: #0f172a;
+            color: white;
+            margin-bottom: 10px;
+            outline: none;
+        }
         .status {
             color: #38bdf8;
             font-size: 16px;
-            margin-top: 10px;
-            min-height: 24px;
+            margin-top: 15px;
+            min-height: 30px;
+            word-wrap: break-word;
         }
         .user-text {
             color: #94a3b8;
@@ -56,8 +67,13 @@
 
 <div class="container">
     <h2>PG AI Assistant</h2>
-    <button id="startBtn" onclick="toggleSpeech()">Start PG</button>
-    <div id="status" class="status">শুনতে প্রস্তুত...</div>
+    
+    <input type="text" id="textInput" placeholder="এখানে মেসেজ লিখুন..." />
+    <br>
+    <button onclick="sendTextMessage()">পাঠান</button>
+    <button id="startBtn" onclick="toggleSpeech()">🎤 কথা বলুন</button>
+
+    <div id="status" class="status">প্রস্তুত...</div>
     <div id="userText" class="user-text"></div>
 </div>
 
@@ -70,55 +86,35 @@
 
     if (SpeechRecognition) {
         recognition = new SpeechRecognition();
-        recognition.lang = 'bn-BD'; // বাংলা ইনপুট
+        recognition.lang = 'bn-BD';
         recognition.continuous = false;
-        recognition.interimResults = false;
 
         recognition.onstart = function() {
             isListening = true;
             document.getElementById("status").innerText = "শুনছি...";
-            document.getElementById("startBtn").innerText = "Stop PG";
+            document.getElementById("startBtn").innerText = "⏹️ থামুন";
         };
 
-        recognition.onresult = async function(event) {
+        recognition.onresult = function(event) {
             const transcript = event.results[0][0].transcript;
-            document.getElementById("userText").innerText = "আপনি: " + transcript;
-            document.getElementById("status").innerText = "চিন্তা করছি...";
-
-            try {
-                const response = await fetch(BACKEND_URL, {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ message: transcript })
-                });
-
-                const data = await response.json();
-                const reply = data.speech_response || "কোনো উত্তর পাওয়া যায়নি।";
-                
-                document.getElementById("status").innerText = "PG: " + reply;
-                speakText(reply);
-
-            } catch (err) {
-                console.error(err);
-                document.getElementById("status").innerText = "সার্ভার এরর! আবার চেষ্টা করুন।";
-            }
+            processMessage(transcript);
         };
 
         recognition.onerror = function(event) {
-            console.error(event.error);
-            document.getElementById("status").innerText = "শুনতে সমস্যা হয়েছে। আবার চাপুন।";
+            document.getElementById("status").innerText = "মাইক্রোফোনে সমস্যা হয়েছে। টাইপ করে চেষ্টা করুন।";
             resetBtn();
         };
 
         recognition.onend = function() {
             resetBtn();
         };
-
-    } else {
-        alert("আপনার ব্রাউজারে ভয়েস সাপোর্ট নেই। Chrome বা Edge ব্যবহার করুন।");
     }
 
     function toggleSpeech() {
+        if (!recognition) {
+            alert("আপনার ব্রাউজারে ভয়েস সাপোর্ট নেই। Chrome বা Edge চেষ্টা করুন।");
+            return;
+        }
         if (!isListening) {
             recognition.start();
         } else {
@@ -128,7 +124,39 @@
 
     function resetBtn() {
         isListening = false;
-        document.getElementById("startBtn").innerText = "Start PG";
+        document.getElementById("startBtn").innerText = "🎤 কথা বলুন";
+    }
+
+    function sendTextMessage() {
+        const inputField = document.getElementById("textInput");
+        const message = inputField.value.trim();
+        if (message !== "") {
+            processMessage(message);
+            inputField.value = "";
+        }
+    }
+
+    async function processMessage(message) {
+        document.getElementById("userText").innerText = "আপনি: " + message;
+        document.getElementById("status").innerText = "চিন্তা করছি...";
+
+        try {
+            const response = await fetch(BACKEND_URL, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ message: message })
+            });
+
+            const data = await response.json();
+            const reply = data.speech_response || "কোনো উত্তর পাওয়া যায়নি।";
+            
+            document.getElementById("status").innerText = "PG: " + reply;
+            speakText(reply);
+
+        } catch (err) {
+            console.error(err);
+            document.getElementById("status").innerText = "সার্ভার এরর! আবার চেষ্টা করুন।";
+        }
     }
 
     function speakText(text) {
