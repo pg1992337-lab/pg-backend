@@ -3,129 +3,141 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PG Voice Assistant</title>
+    <title>PG AI Assistant</title>
     <style>
         body {
-            background-color: #0d1117;
+            background-color: #0f172a;
             color: #ffffff;
             font-family: Arial, sans-serif;
             display: flex;
-            flex-direction: column;
-            align-items: center;
             justify-content: center;
+            align-items: center;
             height: 100vh;
             margin: 0;
-            text-align: center;
         }
-        .status-card {
-            background: #161b22;
-            padding: 30px;
+        .container {
+            background-color: #1e293b;
+            padding: 2rem;
             border-radius: 12px;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
-            max-width: 90%;
-            width: 350px;
+            text-align: center;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+            max-width: 350px;
+            width: 90%;
         }
-        .mic-btn {
-            background-color: #238636;
+        button {
+            background-color: #22c55e;
             color: white;
             border: none;
-            padding: 15px 30px;
+            padding: 12px 24px;
             font-size: 18px;
-            border-radius: 50px;
+            font-weight: bold;
+            border-radius: 25px;
             cursor: pointer;
-            margin-top: 20px;
+            margin: 15px 0;
             transition: 0.3s;
         }
-        .mic-btn:hover { background-color: #2ea043; }
-        #status { margin-top: 15px; font-size: 16px; color: #58a6ff; }
-        #output { margin-top: 10px; font-size: 14px; color: #8b949e; }
-        #errorLog { margin-top: 15px; font-size: 13px; color: #f85149; word-break: break-all; }
+        button:hover {
+            background-color: #16a34a;
+        }
+        .status {
+            color: #38bdf8;
+            font-size: 16px;
+            margin-top: 10px;
+            min-height: 24px;
+        }
+        .user-text {
+            color: #94a3b8;
+            font-size: 14px;
+            margin-top: 5px;
+        }
     </style>
 </head>
 <body>
 
-<div class="status-card">
+<div class="container">
     <h2>PG AI Assistant</h2>
-    <button class="mic-btn" id="startBtn" onclick="startAssistant()">Start PG</button>
-    <p id="status">স্টার্ট বাটনে চাপ দিয়ে শুরু কর</p>
-    <p id="output"></p>
-    <p id="errorLog"></p>
+    <button id="startBtn" onclick="toggleSpeech()">Start PG</button>
+    <div id="status" class="status">শুনতে প্রস্তুত...</div>
+    <div id="userText" class="user-text"></div>
 </div>
 
 <script>
     const BACKEND_URL = "https://pg-backend-gpzj.onrender.com/chat";
     let recognition;
+    let isListening = false;
 
-    function startAssistant() {
-        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 
-        if (!SpeechRecognition) {
-            document.getElementById('errorLog').innerText = "ত্রুটি: আপনার ব্রাউজারে Voice Recognition সাপোর্ট করছে না। Chrome ব্রাউজার ব্যবহার করুন।";
-            return;
-        }
+    if (SpeechRecognition) {
+        recognition = new SpeechRecognition();
+        recognition.lang = 'bn-BD'; // বাংলা ইনপুট
+        recognition.continuous = false;
+        recognition.interimResults = false;
 
-        try {
-            recognition = new SpeechRecognition();
-            recognition.continuous = false;
-            recognition.lang = 'en-IN';
-            recognition.interimResults = false;
-
-            recognition.onstart = () => {
-                document.getElementById('status').innerText = "PG শুনছে... বলুন!";
-                document.getElementById('errorLog').innerText = "";
-            };
-
-            recognition.onresult = async (event) => {
-                const userText = event.results[0][0].transcript;
-                document.getElementById('output').innerText = "আপনি: " + userText;
-                document.getElementById('status').innerText = "PG ভাবছে...";
-                await sendToBackend(userText);
-            };
-
-            recognition.onerror = (event) => {
-                document.getElementById('errorLog').innerText = "Mic Error: " + event.error;
-            };
-
-            recognition.onend = () => {
-                document.getElementById('status').innerText = "বন্ধ হয়েছে। আবার চেষ্টা করতে বাটনে চাপুন।";
-            };
-
-            recognition.start();
-
-        } catch (err) {
-            document.getElementById('errorLog').innerText = "Error: " + err.message;
-        }
-    }
-
-    async function sendToBackend(text) {
-        try {
-            const response = await fetch(BACKEND_URL, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ message: text })
-            });
-
-            if (!response.ok) {
-                throw new Error("HTTP Error Status: " + response.status);
-            }
-
-            const data = await response.json();
-            const replyText = data.speech_response || data.response || "কোনো উত্তর পাওয়া যায়নি";
-            document.getElementById('status').innerText = "PG বলছে...";
-            speakResponse(replyText);
-
-        } catch (error) {
-            document.getElementById('errorLog').innerText = "Backend Error: " + error.message;
-        }
-    }
-
-    function speakResponse(text) {
-        const utterance = new SpeechSynthesisUtterance(text);
-        utterance.lang = 'bn-IN';
-        utterance.onend = () => {
-            if (recognition) recognition.start();
+        recognition.onstart = function() {
+            isListening = true;
+            document.getElementById("status").innerText = "শুনছি...";
+            document.getElementById("startBtn").innerText = "Stop PG";
         };
-        window.speechSynthesis.speak(utterance);
+
+        recognition.onresult = async function(event) {
+            const transcript = event.results[0][0].transcript;
+            document.getElementById("userText").innerText = "আপনি: " + transcript;
+            document.getElementById("status").innerText = "চিন্তা করছি...";
+
+            try {
+                const response = await fetch(BACKEND_URL, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ message: transcript })
+                });
+
+                const data = await response.json();
+                const reply = data.speech_response || "কোনো উত্তর পাওয়া যায়নি।";
+                
+                document.getElementById("status").innerText = "PG: " + reply;
+                speakText(reply);
+
+            } catch (err) {
+                console.error(err);
+                document.getElementById("status").innerText = "সার্ভার এরর! আবার চেষ্টা করুন।";
+            }
+        };
+
+        recognition.onerror = function(event) {
+            console.error(event.error);
+            document.getElementById("status").innerText = "শুনতে সমস্যা হয়েছে। আবার চাপুন।";
+            resetBtn();
+        };
+
+        recognition.onend = function() {
+            resetBtn();
+        };
+
+    } else {
+        alert("আপনার ব্রাউজারে ভয়েস সাপোর্ট নেই। Chrome বা Edge ব্যবহার করুন।");
+    }
+
+    function toggleSpeech() {
+        if (!isListening) {
+            recognition.start();
+        } else {
+            recognition.stop();
+        }
+    }
+
+    function resetBtn() {
+        isListening = false;
+        document.getElementById("startBtn").innerText = "Start PG";
+    }
+
+    function speakText(text) {
+        if ('speechSynthesis' in window) {
+            window.speechSynthesis.cancel();
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.lang = 'bn-BD';
+            window.speechSynthesis.speak(utterance);
+        }
     }
 </script>
 
